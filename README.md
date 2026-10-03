@@ -24,7 +24,7 @@ Package: `com.timothymugo.betterauth.client`.
 
 ## Installation (JitPack)
 
-Releases are built by [JitPack](https://jitpack.io/#timothy-mugo/better-auth-kt-client) from git tags.
+Releases are built by [JitPack](https://jitpack.io/#timothy-mugo/better-auth-kotlin-client) from git tags.
 
 ```kotlin
 // settings.gradle.kts
@@ -44,7 +44,7 @@ dependencies {
 }
 ```
 
-`<tag>` is the git tag, e.g. `v0.1.0`. `<group>` is `com.github.timothy-mugo` or `com.github.timothy-mugo.better-auth-kt-client`:
+`<tag>` is the git tag, e.g. `v0.1.0`. `<group>` is `com.github.timothy-mugo` or `com.github.timothy-mugo.better-auth-kotlin-client`:
 JitPack decides how it names the group of a multi-module build, and this has not been confirmed for this project yet. The
 JitPack page for the release shows the exact coordinates, and the release workflow prints the modules JitPack reports. The
 Kotlin package is `com.timothymugo.betterauth.client` either way.
@@ -208,25 +208,44 @@ Passkey options and credentials are passed through as raw JSON for Android Crede
 
 ## Releasing
 
-Versions are git tags `vMAJOR.MINOR.PATCH` (optionally `-rc.1`, `-beta`, ...). Both ways below run the same gates: the full
-CI (core, Redis and Valkey service containers, Android unit tests and lint, and the Keystore tests on an emulator), a build
-of the exact artifacts consumers get, and `scripts/verify-artifacts.sh` (three modules present, Android has no Redis, Redis
-has no AndroidX, the core pins OkHttp). Then a GitHub Release with generated notes and the jars/AARs is created, and the
-workflow triggers the JitPack build and waits for it to succeed.
+Releases are done by [JReleaser](https://jreleaser.org). To release, **bump `libraryVersion` in `gradle.properties` and merge
+that to `main`** (all three artifacts share that one version). The Release workflow then:
 
-**Recommended:** Actions → *Release* → *Run workflow* from `main`, enter the version. The tag is created only after every check
-passed. **Alternative:** `git tag v1.2.3 && git push origin v1.2.3` (the tag must be on `main`; the tag exists before the checks
-finish, so JitPack could build it early).
+1. finds that `v<libraryVersion>` has no GitHub Release yet (a push that doesn't change the version finds it already
+   exists and does nothing, so re-running is always safe);
+2. runs every check: core, Redis and Valkey containers, Android unit tests and lint, and the Keystore tests on an emulator;
+3. stages the artifacts and verifies them with `scripts/verify-artifacts.sh` (three modules present, Android has no Redis,
+   Redis has no AndroidX, the core pins OkHttp);
+4. runs JReleaser: it tags the commit `vX.Y.Z`, writes the changelog from the commit messages (conventional commits such as
+   `feat:` and `fix(redis):` are grouped into Features and Fixes; other commits are listed as well), and creates the GitHub
+   Release with the jars, AARs and checksums attached;
+5. triggers the JitPack build of the tag and waits for it to succeed.
 
-Versions are immutable: a tag that exists is never reused. Fix forward with the next version.
+**Manual run:** Actions → *Release* → *Run workflow* (from `main`) does the same as a push to `main`. Tick **dry run** to see
+what JReleaser would do (the changelog, the files it would upload) without creating anything.
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request (the emulator job skips pull requests).
-JitPack builds public repositories for free; for a private repository it needs a paid plan, and the workflow skips the JitPack
-step.
+If a run is interrupted after the tag was created but before the GitHub Release existed, re-run it: it finishes the release
+on the existing tag, provided the tag is on the commit being released. If it isn't, the workflow stops and asks for a new
+version, since the artifacts must match the tag.
 
-Try the release build locally:
+Versions are immutable: fix forward with the next version. Pre-release versions (`0.2.0-rc.1`) are marked as pre-releases.
+
+One-time setup: make the repository public. JitPack builds private repositories only on a paid plan, and the workflow skips the
+JitPack step while the repository is private.
+
+**Why `release/` is a separate Gradle build:** the JReleaser Gradle plugin and the Android Gradle Plugin both bundle JAXB and
+break each other on a shared classpath (`NoClassDefFoundError: javax/activation/DataSource`), so JReleaser is configured in
+`release/` and reads the shared values (version, owner, repository) from `gradle.properties`.
+
+Try it locally:
 
 ```bash
-./gradlew publishToMavenLocal -PreleaseVersion=1.2.3 -x test -Dmaven.repo.local=/tmp/m2
-scripts/verify-artifacts.sh /tmp/m2 com.timothymugo 1.2.3
+./gradlew publish -x test                                   # stage artifacts in release/build/staging-deploy
+scripts/verify-artifacts.sh release/build/staging-deploy com.timothymugo "$(sed -n 's/^libraryVersion=//p' gradle.properties)"
+JRELEASER_GITHUB_TOKEN=<token> ./gradlew -p release jreleaserRelease --dryrun     # changes nothing
+scripts/test-release-plan.sh                                # tests of the release guard
 ```
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

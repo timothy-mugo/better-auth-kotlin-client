@@ -1,4 +1,4 @@
-# JitPack build for https://jitpack.io/#timothy-mugo/better-auth-kt-client
+# JitPack build for https://jitpack.io/#timothy-mugo/better-auth-kotlin-client
 #
 # JitPack sets JITPACK=true, GROUP (com.github.<user>) and VERSION (the tag) in the environment; build.gradle.kts reads
 # them so the published group and version match what consumers request. Tests are not run here: the release workflow
