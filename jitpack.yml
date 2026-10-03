@@ -1,0 +1,12 @@
+# JitPack build for https://jitpack.io/#timothy-mugo/better-auth-kt-client
+#
+# JitPack sets JITPACK=true, GROUP (com.github.<user>) and VERSION (the tag) in the environment; build.gradle.kts reads
+# them so the published group and version match what consumers request. Tests are not run here: the release workflow
+# runs the full suite before a release is created.
+jdk:
+  - openjdk21
+before_install:
+  - ./scripts/jitpack-setup.sh
+install:
+  # -PjdkToolchain=21 compiles with JitPack's JDK instead of downloading JDK 25; output is JVM 17 bytecode either way.
+  - ./gradlew clean publishToMavenLocal -x test -PjdkToolchain=21 --no-daemon --stacktrace
