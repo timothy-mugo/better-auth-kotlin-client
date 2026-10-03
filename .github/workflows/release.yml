@@ -81,7 +81,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
 
       # Build exactly what consumers will get and check it before anything is published or tagged.

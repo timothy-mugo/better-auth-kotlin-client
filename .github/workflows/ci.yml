@@ -40,7 +40,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
       # `build` runs every module's unit tests and Android lint. The Redis tests skip silently when no server is
       # reachable, so fail loudly here if the service containers are not what they should be.
@@ -78,7 +78,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
       - uses: gradle/actions/setup-gradle@v4
       - name: Enable KVM
         run: |
