@@ -27,7 +27,7 @@ Package: `com.timothymugo.betterauth.client`.
 Releases are built by [JitPack](https://jitpack.io/#timothy-mugo/better-auth-kotlin-client) from git tags.
 
 ```kotlin
-// settings.gradle.kts
+// settings.gradle.kts (or the module's build.gradle.kts)
 dependencyResolutionManagement {
     repositories {
         google()
@@ -36,18 +36,28 @@ dependencyResolutionManagement {
     }
 }
 
-// build.gradle.kts: take the exact coordinates from the JitPack page for the release you want
+// build.gradle.kts
 dependencies {
-    implementation("<group>:better-auth-kt-client:<tag>")             // everyone
-    implementation("<group>:better-auth-kt-client-android:<tag>")     // Android apps
-    implementation("<group>:better-auth-kt-client-redis:<tag>")       // backends
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kt-client:v0.1.0")          // everyone
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kt-client-android:v0.1.0")  // Android apps
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kt-client-redis:v0.1.0")    // backends
 }
 ```
 
-`<tag>` is the git tag, e.g. `v0.1.0`. `<group>` is `com.github.timothy-mugo` or `com.github.timothy-mugo.better-auth-kotlin-client`:
-JitPack decides how it names the group of a multi-module build, and this has not been confirmed for this project yet. The
-JitPack page for the release shows the exact coordinates, and the release workflow prints the modules JitPack reports. The
-Kotlin package is `com.timothymugo.betterauth.client` either way.
+Three things trip people up:
+- **The group is `com.github.timothy-mugo.better-auth-kotlin-client`**, not `com.timothymugo`. JitPack only serves `com.github.<user>`
+  groups; `com.timothymugo` is the group the artifacts are built with, and the name of the Kotlin package
+  (`com.timothymugo.betterauth.client`), but not what you depend on.
+- **The artifact is the module** (`better-auth-kt-client`, `-android`, `-redis`), not the repository name.
+- **The version is the git tag, including the `v`**: `v0.1.0`, not `0.1.0`.
+
+If a dependency doesn't resolve, the JitPack page for the release lists the exact coordinates and the build log.
+
+**Use Kotlin 2.4 in your project.** The libraries are compiled with Kotlin 2.4, and a compiler can only read metadata one
+version ahead of itself. Checked: from Kotlin 2.4.10 the Android library (AAR) and the JVM jars compile and resolve; from Kotlin
+2.2 it fails with `Module was compiled with an incompatible version of Kotlin`. Kotlin 2.3 should work by that rule but is
+untested. Beware that AGP 9.0's built-in Kotlin is 2.2: raise it by declaring a newer Kotlin Gradle plugin in the same build,
+for example `kotlin("jvm") version "2.4.10" apply false` in the plugins block (that is what the check used).
 
 ## Setup
 
