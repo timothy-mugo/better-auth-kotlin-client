@@ -69,7 +69,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
-            artifactId = "better-auth-kt-client"
+            artifactId = "better-auth-kotlin-client"
         }
     }
 }

@@ -1,11 +1,12 @@
-# better-auth-kt-client
+# better-auth-kotlin-client
 
 A Kotlin client for a running [Better Auth](https://better-auth.com) server, for **Android apps** and **Kotlin/Java backends**.
 
 - `suspend` API that returns a `BetterAuthResult` (no exceptions for API or network errors)
 - Bearer-token **and** cookie-jar transports, pluggable
-- Core auth plus the two-factor, email-OTP, phone-number, magic-link, anonymous, one-time-token, multi-session, JWT,
-  passkey, admin and organization plugins
+- Plugins like Better Auth's `createAuthClient({ plugins: [...] })`: the client has the core auth calls, and only the plugins
+  you register exist (two-factor, email OTP, phone number, magic link, anonymous, one-time token, multi-session, JWT, passkey,
+  admin, organization, and `androidClient` for Android)
 - Escape hatch (`client.request`) for endpoints and custom plugins the SDK does not wrap
 - JVM 17 bytecode, no `java.time` (uses `kotlin.time.Instant`), so no desugaring is needed on Android
 
@@ -16,9 +17,9 @@ other.
 
 | Artifact | For | Adds |
 |---|---|---|
-| `com.timothymugo:better-auth-kt-client` | everyone | the SDK |
-| `com.timothymugo:better-auth-kt-client-android` | Android apps | `EncryptedDataStoreStorage` (Jetpack DataStore + Android Keystore) |
-| `com.timothymugo:better-auth-kt-client-redis` | Kotlin/Java backends | `RedisStorage` (Redis and Valkey, via Lettuce) |
+| `com.timothymugo:better-auth-kotlin-client` | everyone | the SDK |
+| `com.timothymugo:better-auth-kotlin-client-android` | Android apps | `EncryptedDataStoreStorage` (Jetpack DataStore + Android Keystore) |
+| `com.timothymugo:better-auth-kotlin-client-redis` | Kotlin/Java backends | `RedisStorage` (Redis and Valkey, via Lettuce) |
 
 Package: `com.timothymugo.betterauth.client`.
 
@@ -38,9 +39,9 @@ dependencyResolutionManagement {
 
 // build.gradle.kts
 dependencies {
-    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kt-client:v0.1.0")          // everyone
-    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kt-client-android:v0.1.0")  // Android apps
-    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kt-client-redis:v0.1.0")    // backends
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client:v0.1.0")          // everyone
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client-android:v0.1.0")  // Android apps
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client-redis:v0.1.0")    // backends
 }
 ```
 
@@ -48,7 +49,7 @@ Three things trip people up:
 - **The group is `com.github.timothy-mugo.better-auth-kotlin-client`**, not `com.timothymugo`. JitPack only serves `com.github.<user>`
   groups; `com.timothymugo` is the group the artifacts are built with, and the name of the Kotlin package
   (`com.timothymugo.betterauth.client`), but not what you depend on.
-- **The artifact is the module** (`better-auth-kt-client`, `-android`, `-redis`), not the repository name.
+- **The artifact is the module** (`better-auth-kotlin-client`, `-android`, `-redis`), not the repository name.
 - **The version is the git tag, including the `v`**: `v0.1.0`, not `0.1.0`.
 
 If a dependency doesn't resolve, the JitPack page for the release lists the exact coordinates and the build log.
@@ -66,6 +67,7 @@ val auth = BetterAuthClient {
     baseUrl = "https://api.example.com/api/auth"   // includes the handler's base path
     // origin = "myapp://"                          // optional; defaults to the origin of baseUrl (see below)
     cookiePrefix = "myapp"                          // MUST match the server's advanced.cookiePrefix (default "better-auth")
+    plugins(twoFactorClient(), organizationClient())   // only what you register exists, see "Plugins"
 }
 ```
 
@@ -95,9 +97,78 @@ val session: SessionData? = auth.getSession().getOrThrow()   // null = signed ou
 auth.signOut()
 ```
 
-Namespaces: `signUp`, `signIn`, `twoFactor`, `emailOtp`, `phoneNumber`, `magicLink`, `anonymous`, `oneTimeToken`,
-`multiSession`, `jwt`, `passkey`, `admin`, `organization`. Session, user, account and verification calls live on the
-client itself (`getSession`, `updateUser`, `changePassword`, `listSessions`, `linkSocial`, ...).
+Core calls live on the client itself: `signUp`, `signIn` (email and social), `getSession`, `signOut`, `updateUser`,
+`changePassword`, `changeEmail`, `deleteUser`, `listSessions`, `listAccounts`, `linkSocial`, and so on. Everything else comes
+from plugins.
+
+### Plugins
+
+Like `createAuthClient({ plugins: [...] })` in the TypeScript client, a client only has the plugins you register. A plugin's API
+is created the first time you use it, and an unregistered one fails with a message that says what to add:
+
+```kotlin
+import com.timothymugo.betterauth.client.plugins.twofactor.twoFactor
+import com.timothymugo.betterauth.client.plugins.twofactor.twoFactorClient
+
+val auth = BetterAuthClient {
+    baseUrl = "https://api.example.com/api/auth"
+    plugins(twoFactorClient())
+}
+auth.twoFactor.enable(password)   // registered
+auth.admin.listUsers()            // IllegalStateException: Plugin 'admin' is not installed. Add adminClient() to plugins(...)
+```
+
+| Register | API | Also adds to `signIn` | Package under `com.timothymugo.betterauth.client.plugins` |
+|---|---|---|---|
+| `twoFactorClient()` | `auth.twoFactor` | | `twofactor` |
+| `emailOtpClient()` | `auth.emailOtp` | `signIn.emailOtp(...)` | `emailotp` |
+| `phoneNumberClient()` | `auth.phoneNumber` | `signIn.phoneNumber(...)` | `phonenumber` |
+| `magicLinkClient()` | `auth.magicLink` | `signIn.magicLink(...)` | `magiclink` |
+| `anonymousClient()` | `auth.anonymous` | `signIn.anonymous()` | `anonymous` |
+| `oneTimeTokenClient()` | `auth.oneTimeToken` | | `onetimetoken` |
+| `multiSessionClient()` | `auth.multiSession` | | `multisession` |
+| `jwtClient()` | `auth.jwt` | | `jwt` |
+| `passkeyClient()` | `auth.passkey` | `signIn.passkey(...)` | `passkey` |
+| `adminClient()` | `auth.admin` | | `admin` |
+| `organizationClient()` | `auth.organization` | | `organization` |
+| `androidClient(context)` | `auth.android` | | `com.timothymugo.betterauth.client.android` (Android artifact) |
+
+The API and the `signIn` functions are extensions in the plugin's package, so import them (`...plugins.magiclink.magicLink`,
+which covers both `auth.magicLink` and `signIn.magicLink(...)`). Unlike TypeScript, the compiler can't tell you a plugin is
+missing; the check happens when you call it. `withSession` and `withStorage` views keep the same plugins, each with its own
+API instances bound to its own session.
+
+**Writing your own** (for a server plugin this SDK doesn't wrap): implement `ClientPlugin`, which can contribute an API, request
+and response hooks (the counterpart of Better Auth's fetch plugins), and defaults for the client's configuration.
+
+```kotlin
+private val PingKey = PluginKey<PingApi>("ping", "pingClient()")
+
+class PingApi(private val context: PluginContext) {
+    suspend fun ping(message: String) = context.request<Pong>("POST", "/ping/echo", buildJsonObject { put("message", message) })
+}
+
+fun pingClient() = object : ClientPlugin<PingApi> {
+    override val key = PingKey
+    override val hooks = PluginHooks(onRequest = { it.headers["x-trace"] = "1" })     // runs before every request
+    override fun createApi(context: PluginContext) = PingApi(context)
+}
+
+val BetterAuthClient.ping: PingApi get() = plugin(PingKey)
+```
+
+Hooks run in registration order. `onRequest` can add headers, change the query and replace the body; `onResponse` sees the status,
+headers and parsed body of every response (after the SDK stored its cookies and token). The session's own `Authorization` and
+`Cookie` headers always win over a hook's. `configure(config)` runs while the client is built, which is how `androidClient` sets
+the default storage.
+
+### Upgrading from 0.1.0
+
+In 0.1.0 every plugin was a built-in member of the client. Now they are opt-in: register the plugins you use with
+`plugins(...)`, and import their extensions. `auth.twoFactor`, `auth.organization`, ... and `auth.signIn.magicLink(...)`,
+`signIn.emailOtp(...)`, `signIn.phoneNumber(...)`, `signIn.anonymous()`, `signIn.passkey(...)` keep their names and signatures;
+without the registration they throw `IllegalStateException`. Core calls are unchanged. The plugin classes moved from
+`...client.api` to `...client.plugins.<name>`.
 
 ### Your server's custom fields
 
@@ -128,14 +199,21 @@ val auth = BetterAuthClient {
 }
 ```
 
-**Android: encrypted DataStore.** Add `better-auth-kt-client-android` (`minSdk 23`).
+**Android: encrypted DataStore.** Add `better-auth-kotlin-client-android` (`minSdk 23`).
 
 ```kotlin
 val auth = BetterAuthClient {
     baseUrl = "https://api.example.com/api/auth"
-    storage = EncryptedDataStoreStorage.create(applicationContext)
+    plugins(androidClient(applicationContext) { scheme = "myapp" })    // the counterpart of expoClient
 }
 ```
+
+`androidClient` provides the encrypted storage below as the default, so the session survives restarts. With `scheme` it also sends
+the deep-link origin (`expo-origin: myapp://`, which the server's `expo()` plugin turns into the request origin) and rewrites
+relative callback URLs, so `callbackUrl = "/dashboard"` becomes `myapp://dashboard`; native ID-token sign-ins are left alone.
+Add `myapp://` to the server's `trustedOrigins`. Options: `scheme`, `storage`, `storageFileName`, `keyAlias`, `storagePrefix`,
+`disableCache`, `cookiePrefix`. It does not include the Custom Tabs flow for social sign-in. Without the plugin you can pass the
+storage yourself: `storage = EncryptedDataStoreStorage.create(applicationContext)`.
 
 Every value is AES-256-GCM encrypted with a non-extractable key held in the Android Keystore, and stored in a DataStore file.
 Data that can't be decrypted (key lost after a reinstall or restore, tampering) reads as "signed out" and is deleted. Because
@@ -149,7 +227,7 @@ Keystore keys are not backed up, exclude the file from Auto Backup so a restored
 The core pins OkHttp to 5.3.2 so that depending on it does not force `compileSdk` 37 on your app (OkHttp 5.5 needs 37, 5.4
 needs 36). Declare a newer OkHttp yourself if you want one.
 
-**Backend: Redis or Valkey.** Add `better-auth-kt-client-redis`. Use one storage and one prefix per end user:
+**Backend: Redis or Valkey.** Add `better-auth-kotlin-client-redis`. Use one storage and one prefix per end user:
 
 ```kotlin
 val storage = RedisStorage.connect("redis://localhost:6379")        // or valkey, rediss:// for TLS
@@ -177,6 +255,8 @@ val result = auth.withSession(bearerTokenFromRequest).getSession()
 ```
 
 ### Anything not wrapped
+
+For a one-off call; for something reusable, write a plugin (see "Plugins").
 
 ```kotlin
 auth.request("POST", "/some-plugin/action", buildJsonObject { put("x", 1) })      // JsonElement

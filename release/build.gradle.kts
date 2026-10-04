@@ -21,7 +21,7 @@ version = shared("libraryVersion")
 jreleaser {
     gitRootSearch = true
     project {
-        name = "better-auth-kt-client"
+        name = "better-auth-kotlin-client"
         description = shared("projectDescription")
         authors.add("Timothy Mugo Gachengo")
         license = "Apache-2.0"

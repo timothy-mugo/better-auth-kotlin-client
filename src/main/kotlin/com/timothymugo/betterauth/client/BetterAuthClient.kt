@@ -1,19 +1,8 @@
 package com.timothymugo.betterauth.client
 
-import com.timothymugo.betterauth.client.api.AdminApi
-import com.timothymugo.betterauth.client.api.AnonymousApi
-import com.timothymugo.betterauth.client.api.EmailOtpApi
 import com.timothymugo.betterauth.client.api.IdTokenCredentials
-import com.timothymugo.betterauth.client.api.JwtApi
-import com.timothymugo.betterauth.client.api.MagicLinkApi
-import com.timothymugo.betterauth.client.api.MultiSessionApi
-import com.timothymugo.betterauth.client.api.OneTimeTokenApi
-import com.timothymugo.betterauth.client.api.OrganizationApi
-import com.timothymugo.betterauth.client.api.PasskeyApi
-import com.timothymugo.betterauth.client.api.PhoneNumberApi
 import com.timothymugo.betterauth.client.api.SignInApi
 import com.timothymugo.betterauth.client.api.SignUpApi
-import com.timothymugo.betterauth.client.api.TwoFactorApi
 import com.timothymugo.betterauth.client.api.asObject
 import com.timothymugo.betterauth.client.api.call
 import com.timothymugo.betterauth.client.api.get
@@ -30,6 +19,9 @@ import com.timothymugo.betterauth.client.api.toUser
 import com.timothymugo.betterauth.client.config.BetterAuthConfig
 import com.timothymugo.betterauth.client.http.BetterAuthJson
 import com.timothymugo.betterauth.client.http.Transport
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
+import com.timothymugo.betterauth.client.plugin.PluginRegistry
 import com.timothymugo.betterauth.client.model.AccessTokenResult
 import com.timothymugo.betterauth.client.model.Account
 import com.timothymugo.betterauth.client.model.AccountInfo
@@ -68,7 +60,7 @@ import kotlinx.serialization.serializer
  * ```kotlin
  * val auth = BetterAuthClient {
  *     baseUrl = "https://api.example.com/api/auth"
- *     origin = "myapp://"          // must be one of the server's trustedOrigins
+ *     plugins(twoFactorClient(), organizationClient())   // only what you register exists
  * }
  * when (val result = auth.signIn.email("a@b.co", "secret")) {
  *     is BetterAuthResult.Success -> ...
@@ -81,21 +73,39 @@ import kotlinx.serialization.serializer
  */
 public class BetterAuthClient internal constructor(
     internal val transport: Transport,
+    internal val registry: PluginRegistry,
 ) : AutoCloseable {
 
+    /** Email sign-up. */
     public val signUp: SignUpApi = SignUpApi(transport)
-    public val signIn: SignInApi = SignInApi(transport)
-    public val twoFactor: TwoFactorApi = TwoFactorApi(transport)
-    public val emailOtp: EmailOtpApi = EmailOtpApi(transport)
-    public val phoneNumber: PhoneNumberApi = PhoneNumberApi(transport)
-    public val magicLink: MagicLinkApi = MagicLinkApi(transport)
-    public val anonymous: AnonymousApi = AnonymousApi(transport)
-    public val oneTimeToken: OneTimeTokenApi = OneTimeTokenApi(transport)
-    public val multiSession: MultiSessionApi = MultiSessionApi(transport)
-    public val jwt: JwtApi = JwtApi(transport)
-    public val passkey: PasskeyApi = PasskeyApi(transport)
-    public val admin: AdminApi = AdminApi(transport)
-    public val organization: OrganizationApi = OrganizationApi(transport)
+
+    /**
+     * Email and social sign-in. Plugins add more to it when registered, e.g. `signIn.magicLink(...)` with
+     * `magicLinkClient()`.
+     */
+    public val signIn: SignInApi = SignInApi(this)
+
+    private val pluginApis = HashMap<PluginKey<*>, Any>()
+
+    /**
+     * The API of a registered plugin. Plugin APIs are available as extension properties (`auth.twoFactor`,
+     * `auth.organization`, ...) which call this. Throws [IllegalStateException] when the plugin was not registered
+     * with `plugins(...)`.
+     */
+    public fun <A : Any> plugin(key: PluginKey<A>): A = pluginOrNull(key) ?: throw IllegalStateException(
+        "Plugin '${key.name}' is not installed. Add ${key.installHint} to plugins(...) when building the client.",
+    )
+
+    /** Like [plugin], or `null` when the plugin was not registered. */
+    public fun <A : Any> pluginOrNull(key: PluginKey<A>): A? {
+        val plugin = registry.find(key) ?: return null
+        synchronized(pluginApis) {
+            @Suppress("UNCHECKED_CAST")
+            return pluginApis.getOrPut(key) { plugin.createApi(PluginContext(transport)) } as A
+        }
+    }
+
+    public fun isInstalled(key: PluginKey<*>): Boolean = key in registry
 
     // --- session ------------------------------------------------------------------------------------------------
 
@@ -415,7 +425,7 @@ public class BetterAuthClient internal constructor(
      * Closing the returned client does not close the parent.
      */
     public fun withSession(token: String): BetterAuthClient =
-        BetterAuthClient(transport.scoped(InMemorySessionStore(StoredSession(token = token))))
+        BetterAuthClient(transport.scoped(InMemorySessionStore(StoredSession(token = token))), registry)
 
     /**
      * A view of this client that persists its session in [storage] under [prefix] instead of the configured store,
@@ -431,6 +441,7 @@ public class BetterAuthClient internal constructor(
     public fun withStorage(storage: KeyValueStorage, prefix: String = transport.storagePrefix): BetterAuthClient =
         BetterAuthClient(
             transport.scoped(StorageSessionStore(storage, prefix), lockKey = StorageLockKey(System.identityHashCode(storage), prefix)),
+            registry,
         )
 
     // --- escape hatch -------------------------------------------------------------------------------------------
@@ -465,7 +476,12 @@ public class BetterAuthClient internal constructor(
     public companion object {
         /** Java-friendly factory: `BetterAuthClient.create(config)`. */
         @JvmStatic
-        public fun create(config: BetterAuthConfig): BetterAuthClient = BetterAuthClient(Transport.create(config))
+        public fun create(config: BetterAuthConfig): BetterAuthClient {
+            // Plugins may adjust the configuration (a platform plugin sets its default storage here) before it is used.
+            val registry = PluginRegistry(config.registeredPlugins)
+            config.registeredPlugins.forEach { it.configure(config) }
+            return BetterAuthClient(Transport.create(config, registry.hooks), registry)
+        }
     }
 }
 

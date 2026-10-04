@@ -1,5 +1,16 @@
 package com.timothymugo.betterauth.client
 
+import com.timothymugo.betterauth.client.plugins.twofactor.twoFactorClient
+import com.timothymugo.betterauth.client.plugins.emailotp.emailOtpClient
+import com.timothymugo.betterauth.client.plugins.phonenumber.phoneNumberClient
+import com.timothymugo.betterauth.client.plugins.magiclink.magicLinkClient
+import com.timothymugo.betterauth.client.plugins.anonymous.anonymousClient
+import com.timothymugo.betterauth.client.plugins.onetimetoken.oneTimeTokenClient
+import com.timothymugo.betterauth.client.plugins.multisession.multiSessionClient
+import com.timothymugo.betterauth.client.plugins.jwt.jwtClient
+import com.timothymugo.betterauth.client.plugins.passkey.passkeyClient
+import com.timothymugo.betterauth.client.plugins.admin.adminClient
+import com.timothymugo.betterauth.client.plugins.organization.organizationClient
 import com.timothymugo.betterauth.client.config.BetterAuthConfig
 import com.timothymugo.betterauth.client.http.AuthMode
 import com.timothymugo.betterauth.client.result.BetterAuthError
@@ -21,6 +32,11 @@ import kotlin.test.assertIs
 
 const val BASE = "https://auth.example.com/api/auth"
 
+fun allPlugins(): Array<com.timothymugo.betterauth.client.plugin.ClientPlugin<*>> = arrayOf(
+    twoFactorClient(), emailOtpClient(), phoneNumberClient(), magicLinkClient(), anonymousClient(), oneTimeTokenClient(),
+    multiSessionClient(), jwtClient(), passkeyClient(), adminClient(), organizationClient(),
+)
+
 class TestServer(private val handler: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) {
     val requests = mutableListOf<HttpRequestData>()
     val last: HttpRequestData get() = requests.last()
@@ -30,13 +46,16 @@ class TestServer(private val handler: MockRequestHandleScope.(HttpRequestData) -
         handler(request)
     }
 
+    /** A client with every plugin registered, unless [withPlugins] is false. */
     fun client(
         mode: AuthMode = AuthMode.Bearer,
+        withPlugins: Boolean = true,
         configure: BetterAuthConfig.() -> Unit = {},
     ): BetterAuthClient = BetterAuthClient {
         baseUrl = BASE
         this.mode = mode
         engine = this@TestServer.engine
+        if (withPlugins) plugins(*allPlugins())
         configure()
     }
 }

@@ -1,5 +1,6 @@
 package com.timothymugo.betterauth.client.api
 
+import com.timothymugo.betterauth.client.BetterAuthClient
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.OperationResult
 import com.timothymugo.betterauth.client.model.SignInOutcome
@@ -65,7 +66,9 @@ internal fun JsonElement.toSignInOutcome(): SignInOutcome {
 }
 
 /** `client.signIn` */
-public class SignInApi internal constructor(private val t: Transport) {
+public class SignInApi internal constructor(internal val client: BetterAuthClient) {
+    private val t: Transport get() = client.transport
+
     /**
      * Signs in with email and password.
      *
@@ -132,65 +135,4 @@ public class SignInApi internal constructor(private val t: Transport) {
             SocialSignInOutcome.Authenticated(element.toAuthResponse())
         }
     }
-
-    /** Creates a guest user (anonymous plugin). */
-    public suspend fun anonymous(): BetterAuthResult<SignInOutcome> =
-        t.post("/sign-in/anonymous") { it.toSignInOutcome() }
-
-    /** Signs in with phone number and password (phone-number plugin). */
-    public suspend fun phoneNumber(
-        phoneNumber: String,
-        password: String,
-        rememberMe: Boolean? = null,
-    ): BetterAuthResult<SignInOutcome> = t.post(
-        "/sign-in/phone-number",
-        jsonBody {
-            put("phoneNumber", phoneNumber)
-            put("password", password)
-            put("rememberMe", rememberMe)
-        },
-    ) { it.toSignInOutcome() }
-
-    /** Emails a one-click sign-in link (magic-link plugin). Complete it with `client.magicLink.verify(token)`. */
-    public suspend fun magicLink(
-        email: String,
-        name: String? = null,
-        callbackUrl: String? = null,
-        newUserCallbackUrl: String? = null,
-        errorCallbackUrl: String? = null,
-        metadata: JsonObject? = null,
-    ): BetterAuthResult<OperationResult> = t.postForResult(
-        "/sign-in/magic-link",
-        jsonBody {
-            put("email", email)
-            put("name", name)
-            put("callbackURL", callbackUrl)
-            put("newUserCallbackURL", newUserCallbackUrl)
-            put("errorCallbackURL", errorCallbackUrl)
-            put("metadata", metadata)
-        },
-    )
-
-    /** Signs in with a code sent by `client.emailOtp.sendVerificationOtp(email, EmailOtpType.SignIn)`. */
-    public suspend fun emailOtp(
-        email: String,
-        otp: String,
-        name: String? = null,
-        image: String? = null,
-    ): BetterAuthResult<SignInOutcome> = t.post(
-        "/sign-in/email-otp",
-        jsonBody {
-            put("email", email)
-            put("otp", otp)
-            put("name", name)
-            put("image", image)
-        },
-    ) { it.toSignInOutcome() }
-
-    /**
-     * Signs in with a passkey. [response] is the credential the platform returned for the options from
-     * `client.passkey.generateAuthenticateOptions()`.
-     */
-    public suspend fun passkey(response: JsonElement): BetterAuthResult<SignInOutcome> =
-        t.post("/passkey/verify-authentication", jsonBody { put("response", response) }) { it.toSignInOutcome() }
 }

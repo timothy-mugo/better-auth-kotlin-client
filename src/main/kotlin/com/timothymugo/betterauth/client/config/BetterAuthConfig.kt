@@ -4,6 +4,7 @@ import com.timothymugo.betterauth.client.http.AuthMode
 import com.timothymugo.betterauth.client.http.BearerSessionTransport
 import com.timothymugo.betterauth.client.http.CookieSessionTransport
 import com.timothymugo.betterauth.client.http.SessionTransport
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
 import com.timothymugo.betterauth.client.session.InMemorySessionStore
 import com.timothymugo.betterauth.client.session.SessionStore
 import com.timothymugo.betterauth.client.session.StorageSessionStore
@@ -68,10 +69,23 @@ public class BetterAuthConfig {
     public var expoOrigin: String? = null
 
     /** Sent as `User-Agent`. */
-    public var userAgent: String = "better-auth-kt-client/$SDK_VERSION"
+    public var userAgent: String = "better-auth-kotlin-client/$SDK_VERSION"
 
     /** Extra headers added to every request (e.g. an API gateway key). */
     public val headers: MutableMap<String, String> = LinkedHashMap()
+
+    private val registered = ArrayList<ClientPlugin<*>>()
+
+    /**
+     * Registers plugins, like `createAuthClient({ plugins: [...] })`. Only registered plugins exist on the client:
+     * `plugins(twoFactorClient(), organizationClient())` makes `auth.twoFactor` and `auth.organization` available.
+     * May be called several times; registering the same plugin twice is an error.
+     */
+    public fun plugins(vararg plugins: ClientPlugin<*>) {
+        registered += plugins
+    }
+
+    internal val registeredPlugins: List<ClientPlugin<*>> get() = registered
 
     /** HTTP engine. Defaults to OkHttp, which works on Android and on the JVM. */
     public var engine: HttpClientEngine? = null

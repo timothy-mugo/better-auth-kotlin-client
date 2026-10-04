@@ -16,7 +16,7 @@ python3 - "$base" "$version" <<'PY'
 import json, os, sys
 
 base, version = sys.argv[1], sys.argv[2]
-core, android, redis = "better-auth-kt-client", "better-auth-kt-client-android", "better-auth-kt-client-redis"
+core, android, redis = "better-auth-kotlin-client", "better-auth-kotlin-client-android", "better-auth-kotlin-client-redis"
 errors = []
 
 def path(artifact, suffix):

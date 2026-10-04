@@ -1,6 +1,9 @@
 package com.timothymugo.betterauth.client.http
 
 import com.timothymugo.betterauth.client.config.BetterAuthConfig
+import com.timothymugo.betterauth.client.plugin.PluginHooks
+import com.timothymugo.betterauth.client.plugin.RequestContext
+import com.timothymugo.betterauth.client.plugin.ResponseContext
 import com.timothymugo.betterauth.client.result.BetterAuthError
 import com.timothymugo.betterauth.client.result.BetterAuthResult
 import com.timothymugo.betterauth.client.session.SessionStore
@@ -62,6 +65,7 @@ internal class Transport private constructor(
     private val clock: () -> Long,
     private val sessionMutex: Mutex,
     private val lockStripes: Array<Mutex>,
+    private val hooks: List<PluginHooks>,
 ) {
     private val baseUrl = config.baseUrl.trimEnd('/')
 
@@ -85,17 +89,24 @@ internal class Transport private constructor(
         val state = store.get()
         val outgoing = sessionTransport.outgoingHeaders(state, config.cookiePrefix, clock())
 
+        // Plugin hooks may add headers and rewrite the query and the body (in registration order).
+        val request = RequestContext(method.value, path, LinkedHashMap(), LinkedHashMap(query), body)
+        for (hook in hooks) hook.onRequest?.invoke(request)
+
         val response = try {
             http.request {
                 this.method = method
-                url(buildUrl(path, query))
+                url(buildUrl(path, request.query))
                 header("Accept", "application/json")
                 header("User-Agent", config.userAgent)
                 origin?.let { header("Origin", it) }
                 config.expoOrigin?.let { header("expo-origin", it) }
                 config.headers.forEach { (k, v) -> header(k, v) }
+                // The session's own Authorization/Cookie always win over a plugin that set the same header.
+                request.headers.filterKeys { k -> outgoing.keys.none { it.equals(k, ignoreCase = true) } }
+                    .forEach { (k, v) -> header(k, v) }
                 outgoing.forEach { (k, v) -> header(k, v) }
-                applyBody(method, body)
+                applyBody(method, request.body)
             }
         } catch (e: CancellationException) {
             throw e
@@ -119,12 +130,35 @@ internal class Transport private constructor(
         }
 
         val status = response.status.value
+        if (hooks.any { it.onResponse != null }) {
+            val context = ResponseContext(method.value, path, status, headers, text)
+            for (hook in hooks) hook.onResponse?.invoke(context)
+        }
         return if (status < 400) {
             BetterAuthResult.Success(RawResponse(status, headers, text))
         } else {
             BetterAuthResult.Failure(parseApiError(status, text, response.status.description))
         }
     }
+
+    /** Issues a request and returns the JSON body as-is. */
+    suspend fun executeJson(
+        method: HttpMethod,
+        path: String,
+        query: Map<String, String?> = emptyMap(),
+        body: JsonElement? = null,
+    ): BetterAuthResult<JsonElement> = when (val raw = execute(method, path, query, body)) {
+        is BetterAuthResult.Failure -> raw
+        is BetterAuthResult.Success -> decode(raw.value, JsonElement.serializer())
+    }
+
+    suspend fun <T> executeDecoded(
+        method: HttpMethod,
+        path: String,
+        deserializer: DeserializationStrategy<T>,
+        query: Map<String, String?> = emptyMap(),
+        body: JsonElement? = null,
+    ): BetterAuthResult<T> = call(method, path, deserializer, query, body)
 
     /** Issues a request and decodes the JSON body with [deserializer]. */
     suspend fun <T> call(
@@ -181,6 +215,7 @@ internal class Transport private constructor(
         // request. Striped, so locks are shared without being retained per user.
         sessionMutex = lockKey?.let { lockStripes[(it.hashCode() and Int.MAX_VALUE) % lockStripes.size] } ?: Mutex(),
         lockStripes = lockStripes,
+        hooks = hooks,
     )
 
     fun close() {
@@ -219,7 +254,11 @@ internal class Transport private constructor(
     companion object {
         private const val LOCK_STRIPES = 64
 
-        fun create(config: BetterAuthConfig, clock: () -> Long = { System.currentTimeMillis() }): Transport {
+        fun create(
+            config: BetterAuthConfig,
+            hooks: List<PluginHooks> = emptyList(),
+            clock: () -> Long = { System.currentTimeMillis() },
+        ): Transport {
             config.validate()
             val engine: HttpClientEngine = config.engine ?: OkHttp.create()
             val client = HttpClient(engine) {
@@ -232,7 +271,7 @@ internal class Transport private constructor(
             }
             return Transport(
                 config, client, ownsClient = true, config.resolveSessionStore(), config.resolveTransport(), clock,
-                sessionMutex = Mutex(), lockStripes = Array(LOCK_STRIPES) { Mutex() },
+                sessionMutex = Mutex(), lockStripes = Array(LOCK_STRIPES) { Mutex() }, hooks = hooks,
             )
         }
     }

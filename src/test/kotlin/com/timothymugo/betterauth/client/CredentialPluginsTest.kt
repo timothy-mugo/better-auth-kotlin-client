@@ -1,5 +1,11 @@
 package com.timothymugo.betterauth.client
 
+import com.timothymugo.betterauth.client.plugins.twofactor.twoFactor
+import com.timothymugo.betterauth.client.plugins.emailotp.emailOtp
+import com.timothymugo.betterauth.client.plugins.phonenumber.phoneNumber
+import com.timothymugo.betterauth.client.plugins.magiclink.magicLink
+import com.timothymugo.betterauth.client.plugins.anonymous.anonymous
+import com.timothymugo.betterauth.client.plugins.onetimetoken.oneTimeToken
 import com.timothymugo.betterauth.client.model.AuthOrRedirect
 import com.timothymugo.betterauth.client.model.AuthResponse
 import com.timothymugo.betterauth.client.model.EmailOtpType

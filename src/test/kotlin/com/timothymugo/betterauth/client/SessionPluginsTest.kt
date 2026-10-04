@@ -1,5 +1,8 @@
 package com.timothymugo.betterauth.client
 
+import com.timothymugo.betterauth.client.plugins.multisession.multiSession
+import com.timothymugo.betterauth.client.plugins.jwt.jwt
+import com.timothymugo.betterauth.client.plugins.passkey.passkey
 import com.timothymugo.betterauth.client.model.OperationResult
 import com.timothymugo.betterauth.client.model.PasskeyRegistration
 import com.timothymugo.betterauth.client.model.SessionData

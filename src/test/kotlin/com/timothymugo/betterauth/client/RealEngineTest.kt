@@ -88,7 +88,7 @@ class RealEngineTest {
             assertEquals("""{"email":"a@b.co","password":"pw"}""", request.body)
             assertTrue(request.headers["content-type"]!!.single().startsWith("application/json"))
             assertEquals("application/json", request.headers["accept"]?.single())
-            assertTrue(request.headers["user-agent"]!!.single().startsWith("better-auth-kt-client/"))
+            assertTrue(request.headers["user-agent"]!!.single().startsWith("better-auth-kotlin-client/"))
         }
     }
 

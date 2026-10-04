@@ -1,4 +1,10 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.admin
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.AuthResponse
@@ -156,3 +162,19 @@ public class AdminApi internal constructor(private val t: Transport) {
         },
     ) { it.toPermissionCheck() }
 }
+
+private val AdminKey = PluginKey<AdminApi>("admin", "adminClient()")
+
+private object AdminPlugin : ClientPlugin<AdminApi> {
+    override val key: PluginKey<AdminApi> = AdminKey
+
+    override fun createApi(context: PluginContext): AdminApi = AdminApi(context.transport)
+}
+
+/**
+ * Registers the Admin plugin: `BetterAuthClient { plugins(adminClient()) }`. Its API is then `client.admin`.
+ */
+public fun adminClient(): ClientPlugin<AdminApi> = AdminPlugin
+
+/** The Admin API. Throws if [adminClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.admin: AdminApi get() = plugin(AdminKey)

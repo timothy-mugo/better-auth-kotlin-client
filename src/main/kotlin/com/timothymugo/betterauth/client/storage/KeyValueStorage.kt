@@ -12,8 +12,8 @@ import kotlinx.coroutines.sync.withLock
  * constraints. All methods must be safe to call from any coroutine.
  *
  * Available adapters (separate artifacts, add only the one you need):
- * - `better-auth-kt-client-android`: `EncryptedDataStoreStorage`
- * - `better-auth-kt-client-redis`: `RedisStorage` (Redis and Valkey)
+ * - `better-auth-kotlin-client-android`: `EncryptedDataStoreStorage`
+ * - `better-auth-kotlin-client-redis`: `RedisStorage` (Redis and Valkey)
  */
 public interface KeyValueStorage {
     public suspend fun getItem(key: String): String?

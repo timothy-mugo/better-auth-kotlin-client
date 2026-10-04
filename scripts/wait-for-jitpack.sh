@@ -2,7 +2,7 @@
 # Triggers a JitPack build for a tag and waits for it to finish.
 #
 #   scripts/wait-for-jitpack.sh <group> <artifact> <tag> [timeout-seconds]
-#   scripts/wait-for-jitpack.sh com.github.timothy-mugo better-auth-kt-client v0.1.0
+#   scripts/wait-for-jitpack.sh com.github.timothy-mugo better-auth-kotlin-client v0.1.0
 #
 # JitPack builds on first request. Requesting the build log starts the build; /api/builds/... reports the status.
 # Exit 0 when the build is "ok", 1 on failure or timeout (the build log tail is printed).

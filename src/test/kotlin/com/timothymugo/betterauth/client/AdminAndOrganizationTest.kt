@@ -1,5 +1,7 @@
 package com.timothymugo.betterauth.client
 
+import com.timothymugo.betterauth.client.plugins.admin.admin
+import com.timothymugo.betterauth.client.plugins.organization.organization
 import com.timothymugo.betterauth.client.model.AuthResponse
 import com.timothymugo.betterauth.client.model.FullOrganization
 import com.timothymugo.betterauth.client.model.InvitationOutcome

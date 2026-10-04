@@ -6,7 +6,7 @@ plugins {
 }
 
 group = rootProject.group
-base.archivesName = "better-auth-kt-client-android"
+base.archivesName = "better-auth-kotlin-client-android"
 version = rootProject.version
 
 repositories {
@@ -54,6 +54,7 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("junit:junit:4.13.2")
+    androidTestImplementation("io.ktor:ktor-client-mock:3.6.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 }
 
@@ -62,7 +63,7 @@ afterEvaluate {
         publications {
             create<MavenPublication>("release") {
                 from(components["release"])
-                artifactId = "better-auth-kt-client-android"
+                artifactId = "better-auth-kotlin-client-android"
             }
         }
     }

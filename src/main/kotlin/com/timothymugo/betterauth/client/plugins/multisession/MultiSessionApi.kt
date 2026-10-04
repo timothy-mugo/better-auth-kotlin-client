@@ -1,4 +1,10 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.multisession
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.OperationResult
@@ -38,3 +44,19 @@ public class MultiSessionApi internal constructor(private val t: Transport) {
     public suspend fun revoke(sessionToken: String): BetterAuthResult<OperationResult> =
         t.postForResult("/multi-session/revoke", jsonBody { put("sessionToken", sessionToken) })
 }
+
+private val MultiSessionKey = PluginKey<MultiSessionApi>("multiSession", "multiSessionClient()")
+
+private object MultiSessionPlugin : ClientPlugin<MultiSessionApi> {
+    override val key: PluginKey<MultiSessionApi> = MultiSessionKey
+
+    override fun createApi(context: PluginContext): MultiSessionApi = MultiSessionApi(context.transport)
+}
+
+/**
+ * Registers the Multiple sessions on one device plugin: `BetterAuthClient { plugins(multiSessionClient()) }`. Its API is then `client.multiSession`.
+ */
+public fun multiSessionClient(): ClientPlugin<MultiSessionApi> = MultiSessionPlugin
+
+/** The Multiple sessions on one device API. Throws if [multiSessionClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.multiSession: MultiSessionApi get() = plugin(MultiSessionKey)

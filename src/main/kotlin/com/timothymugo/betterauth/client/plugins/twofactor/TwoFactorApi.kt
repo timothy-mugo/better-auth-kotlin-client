@@ -1,4 +1,10 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.twofactor
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.AuthResponse
@@ -89,3 +95,19 @@ public class TwoFactorApi internal constructor(private val t: Transport) {
             it.asObject().strings("backupCodes")
         }
 }
+
+private val TwoFactorKey = PluginKey<TwoFactorApi>("twoFactor", "twoFactorClient()")
+
+private object TwoFactorPlugin : ClientPlugin<TwoFactorApi> {
+    override val key: PluginKey<TwoFactorApi> = TwoFactorKey
+
+    override fun createApi(context: PluginContext): TwoFactorApi = TwoFactorApi(context.transport)
+}
+
+/**
+ * Registers the Two-factor authentication plugin: `BetterAuthClient { plugins(twoFactorClient()) }`. Its API is then `client.twoFactor`.
+ */
+public fun twoFactorClient(): ClientPlugin<TwoFactorApi> = TwoFactorPlugin
+
+/** The Two-factor authentication API. Throws if [twoFactorClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.twoFactor: TwoFactorApi get() = plugin(TwoFactorKey)

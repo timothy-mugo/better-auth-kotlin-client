@@ -1,4 +1,13 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.phonenumber
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
+import com.timothymugo.betterauth.client.model.SignInOutcome
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.AuthResponse
@@ -43,4 +52,36 @@ public class PhoneNumberApi internal constructor(private val t: Transport) {
                 put("newPassword", newPassword)
             },
         )
+
+    internal suspend fun signIn(phoneNumber: String, password: String, rememberMe: Boolean?): BetterAuthResult<SignInOutcome> = t.post(
+        "/sign-in/phone-number",
+        jsonBody {
+            put("phoneNumber", phoneNumber)
+            put("password", password)
+            put("rememberMe", rememberMe)
+        },
+    ) { it.toSignInOutcome() }
 }
+
+private val PhoneNumberKey = PluginKey<PhoneNumberApi>("phoneNumber", "phoneNumberClient()")
+
+private object PhoneNumberPlugin : ClientPlugin<PhoneNumberApi> {
+    override val key: PluginKey<PhoneNumberApi> = PhoneNumberKey
+
+    override fun createApi(context: PluginContext): PhoneNumberApi = PhoneNumberApi(context.transport)
+}
+
+/**
+ * Registers the Phone number plugin: `BetterAuthClient { plugins(phoneNumberClient()) }`. Its API is then `client.phoneNumber`.
+ */
+public fun phoneNumberClient(): ClientPlugin<PhoneNumberApi> = PhoneNumberPlugin
+
+/** The Phone number API. Throws if [phoneNumberClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.phoneNumber: PhoneNumberApi get() = plugin(PhoneNumberKey)
+
+/** Signs in with phone number and password (phone-number plugin). */
+public suspend fun SignInApi.phoneNumber(
+    phoneNumber: String,
+    password: String,
+    rememberMe: Boolean? = null,
+): BetterAuthResult<SignInOutcome> = client.phoneNumber.signIn(phoneNumber, password, rememberMe)

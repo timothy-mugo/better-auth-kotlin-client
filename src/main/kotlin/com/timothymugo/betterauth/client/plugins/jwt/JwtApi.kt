@@ -1,4 +1,10 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.jwt
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.JsonWebKey
@@ -27,3 +33,19 @@ public class JwtApi internal constructor(private val t: Transport) {
         }
     }
 }
+
+private val JwtKey = PluginKey<JwtApi>("jwt", "jwtClient()")
+
+private object JwtPlugin : ClientPlugin<JwtApi> {
+    override val key: PluginKey<JwtApi> = JwtKey
+
+    override fun createApi(context: PluginContext): JwtApi = JwtApi(context.transport)
+}
+
+/**
+ * Registers the JWT plugin: `BetterAuthClient { plugins(jwtClient()) }`. Its API is then `client.jwt`.
+ */
+public fun jwtClient(): ClientPlugin<JwtApi> = JwtPlugin
+
+/** The JWT API. Throws if [jwtClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.jwt: JwtApi get() = plugin(JwtKey)

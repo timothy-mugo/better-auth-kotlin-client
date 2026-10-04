@@ -1,4 +1,12 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.passkey
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
+import com.timothymugo.betterauth.client.model.SignInOutcome
+import kotlinx.serialization.json.JsonObject
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.http.BetterAuthJson
@@ -70,4 +78,30 @@ public class PasskeyApi internal constructor(private val t: Transport) {
         val passkey = element.asObject().obj("passkey") ?: error("`passkey` missing in response")
         BetterAuthJson.decodeFromJsonElement(Passkey.serializer(), passkey)
     }
+
+    internal suspend fun signIn(response: JsonElement): BetterAuthResult<SignInOutcome> =
+        t.post("/passkey/verify-authentication", jsonBody { put("response", response) }) { it.toSignInOutcome() }
 }
+
+private val PasskeyKey = PluginKey<PasskeyApi>("passkey", "passkeyClient()")
+
+private object PasskeyPlugin : ClientPlugin<PasskeyApi> {
+    override val key: PluginKey<PasskeyApi> = PasskeyKey
+
+    override fun createApi(context: PluginContext): PasskeyApi = PasskeyApi(context.transport)
+}
+
+/**
+ * Registers the Passkeys (WebAuthn) plugin: `BetterAuthClient { plugins(passkeyClient()) }`. Its API is then `client.passkey`.
+ */
+public fun passkeyClient(): ClientPlugin<PasskeyApi> = PasskeyPlugin
+
+/** The Passkeys (WebAuthn) API. Throws if [passkeyClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.passkey: PasskeyApi get() = plugin(PasskeyKey)
+
+/**
+ * Signs in with a passkey. [response] is the credential the platform returned for the options from
+ * `client.passkey.generateAuthenticateOptions()`.
+ */
+public suspend fun SignInApi.passkey(response: JsonElement): BetterAuthResult<SignInOutcome> =
+    client.passkey.signIn(response)

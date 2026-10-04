@@ -6,7 +6,7 @@ plugins {
 }
 
 group = rootProject.group
-base.archivesName = "better-auth-kt-client-redis"
+base.archivesName = "better-auth-kotlin-client-redis"
 version = rootProject.version
 
 repositories {
@@ -48,7 +48,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
-            artifactId = "better-auth-kt-client-redis"
+            artifactId = "better-auth-kotlin-client-redis"
         }
     }
 }

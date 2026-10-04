@@ -15,7 +15,7 @@ pluginManagement {
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
-rootProject.name = "better-auth-kt-client"
+rootProject.name = "better-auth-kotlin-client"
 
 include(":redis")
 include(":android")

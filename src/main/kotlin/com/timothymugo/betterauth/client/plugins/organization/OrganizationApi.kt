@@ -1,4 +1,10 @@
-package com.timothymugo.betterauth.client.api
+package com.timothymugo.betterauth.client.plugins.organization
+
+import com.timothymugo.betterauth.client.BetterAuthClient
+import com.timothymugo.betterauth.client.api.*
+import com.timothymugo.betterauth.client.plugin.ClientPlugin
+import com.timothymugo.betterauth.client.plugin.PluginContext
+import com.timothymugo.betterauth.client.plugin.PluginKey
 
 import com.timothymugo.betterauth.client.http.Transport
 import com.timothymugo.betterauth.client.model.FullOrganization
@@ -432,3 +438,19 @@ private fun JsonElement.toRoleOrNull(): OrganizationRole? {
     val role = o.obj("roleData") ?: o.takeIf { it.containsKey("role") } ?: return null
     return role.decodeAs<OrganizationRole>()
 }
+
+private val OrganizationKey = PluginKey<OrganizationApi>("organization", "organizationClient()")
+
+private object OrganizationPlugin : ClientPlugin<OrganizationApi> {
+    override val key: PluginKey<OrganizationApi> = OrganizationKey
+
+    override fun createApi(context: PluginContext): OrganizationApi = OrganizationApi(context.transport)
+}
+
+/**
+ * Registers the Organizations, members, teams and roles plugin: `BetterAuthClient { plugins(organizationClient()) }`. Its API is then `client.organization`.
+ */
+public fun organizationClient(): ClientPlugin<OrganizationApi> = OrganizationPlugin
+
+/** The Organizations, members, teams and roles API. Throws if [organizationClient] was not registered with `plugins(...)`. */
+public val BetterAuthClient.organization: OrganizationApi get() = plugin(OrganizationKey)
