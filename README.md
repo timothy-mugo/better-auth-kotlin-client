@@ -39,9 +39,9 @@ dependencyResolutionManagement {
 
 // build.gradle.kts
 dependencies {
-    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client:v0.1.0")          // everyone
-    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client-android:v0.1.0")  // Android apps
-    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client-redis:v0.1.0")    // backends
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client:v0.2.0")          // everyone
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client-android:v0.2.0")  // Android apps
+    implementation("com.github.timothy-mugo.better-auth-kotlin-client:better-auth-kotlin-client-redis:v0.2.0")    // backends
 }
 ```
 
@@ -50,7 +50,7 @@ Three things trip people up:
   groups; `com.timothymugo` is the group the artifacts are built with, and the name of the Kotlin package
   (`com.timothymugo.betterauth.client`), but not what you depend on.
 - **The artifact is the module** (`better-auth-kotlin-client`, `-android`, `-redis`), not the repository name.
-- **The version is the git tag, including the `v`**: `v0.1.0`, not `0.1.0`.
+- **The version is the git tag, including the `v`**: `v0.2.0`, not `0.2.0`.
 
 If a dependency doesn't resolve, the JitPack page for the release lists the exact coordinates and the build log.
 
@@ -302,7 +302,7 @@ Releases are done by [JReleaser](https://jreleaser.org). To release, **bump `lib
 that to `main`** (all three artifacts share that one version). The Release workflow then:
 
 1. finds that `v<libraryVersion>` has no GitHub Release yet (a push that doesn't change the version finds it already
-   exists and does nothing, so re-running is always safe);
+   exists and does nothing);
 2. runs every check: core, Redis and Valkey containers, Android unit tests and lint, and the Keystore tests on an emulator;
 3. stages the artifacts and verifies them with `scripts/verify-artifacts.sh` (three modules present, Android has no Redis,
    Redis has no AndroidX, the core pins OkHttp);
@@ -314,9 +314,18 @@ that to `main`** (all three artifacts share that one version). The Release workf
 **Manual run:** Actions → *Release* → *Run workflow* (from `main`) does the same as a push to `main`. Tick **dry run** to see
 what JReleaser would do (the changelog, the files it would upload) without creating anything.
 
-If a run is interrupted after the tag was created but before the GitHub Release existed, re-run it: it finishes the release
-on the existing tag, provided the tag is on the commit being released. If it isn't, the workflow stops and asks for a new
-version, since the artifacts must match the tag.
+**Re-running is safe**, with either *Re-run all jobs* or *Re-run failed jobs*. The release job checks again, at its own start,
+whether the GitHub Release exists. If an earlier attempt already created it (and failed afterwards, say in the JitPack step), the
+staging and JReleaser steps are skipped and only the JitPack step is repeated. If the tag exists without a release (an attempt
+died in between), the release is finished on that tag, provided the tag is on the commit being released; if it isn't, the
+workflow stops and asks for a new version, since the artifacts must match the tag.
+
+**If the JitPack step fails**, read its log first. JitPack caches a failed build of a tag, so re-running the workflow alone does
+not retry it. When the log shows a problem in JitPack's environment rather than in this code (we saw `Could not find or load main
+class org.gradle.wrapper.GradleWrapperMain` once, for a commit that built fine moments later), sign in at
+[jitpack.io](https://jitpack.io), open the repository, remove the failed build of that version, and re-run the workflow. JitPack
+allows this for 7 days after the first build; after that the artifacts are immutable and the fix is a new version. A commit hash
+works as a version too (`...:better-auth-kotlin-client:<short-sha>`) if you need the artifacts before the tag is rebuilt.
 
 Versions are immutable: fix forward with the next version. Pre-release versions (`0.2.0-rc.1`) are marked as pre-releases.
 

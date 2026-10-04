@@ -76,36 +76,52 @@ jobs:
     env:
       VERSION: ${{ needs.plan.outputs.version }}
       TAG: ${{ needs.plan.outputs.tag }}
-      SKIP_TAG: ${{ needs.plan.outputs.skip_tag }}
       DRY_RUN: ${{ inputs.dry-run && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # "Re-run failed jobs" reuses the Plan job's output from the first attempt without recomputing it, so decide again, here,
+      # whether the GitHub Release still has to be created. An earlier attempt may have created it and failed afterwards (for
+      # example in the JitPack step); then everything up to JitPack is skipped and only JitPack is retried.
+      - name: Does the release still need creating?
+        id: fresh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release-plan.sh | tee -a "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@v4
+        if: steps.fresh.outputs.release == 'true'
         with:
           distribution: temurin
           java-version: "25"
       - uses: android-actions/setup-android@v4
+        if: steps.fresh.outputs.release == 'true'
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.fresh.outputs.release == 'true'
 
       # Stage exactly what consumers will get into release/build/staging-deploy and check it before JReleaser sees it.
       - name: Stage artifacts
+        if: steps.fresh.outputs.release == 'true'
         run: ./gradlew publish -x test
       - name: Verify artifacts
+        if: steps.fresh.outputs.release == 'true'
         run: scripts/verify-artifacts.sh release/build/staging-deploy com.timothymugo "$VERSION"
 
       # JReleaser runs from its own build in release/ (it can't share a classpath with the Android Gradle Plugin).
       - name: JReleaser
+        if: steps.fresh.outputs.release == 'true'
         env:
           JRELEASER_GITHUB_TOKEN: ${{ github.token }}
           JRELEASER_DRY_RUN: ${{ env.DRY_RUN }}
+          SKIP_TAG: ${{ steps.fresh.outputs.skip_tag }}
         run: ./gradlew -p release jreleaserRelease -PskipTag="$SKIP_TAG"
 
       - name: Upload JReleaser output
-        if: always()
+        if: always() && steps.fresh.outputs.release == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: jreleaser

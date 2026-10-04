@@ -41,4 +41,12 @@ done
 
 echo "JitPack build did not succeed. Last 60 lines of the log ($log_url):"
 curl -s --max-time 60 "$log_url" | tail -60 || true
+cat <<HINT
+
+JitPack caches a failed build of a tag, so re-running this step alone will not retry it. If the log shows an infrastructure
+problem rather than a problem in the code (for example "Could not find or load main class" for the Gradle wrapper or
+sdkmanager), sign in at https://jitpack.io, open the repository, remove the failed build of $tag, and re-run this workflow
+(it only repeats this JitPack step when the GitHub Release already exists). Builds can be redone for 7 days; after that the
+artifacts are immutable and the fix is a new version.
+HINT
 exit 1
